@@ -13,19 +13,14 @@ BASE_URL = 'https://paper-api.alpaca.markets/v2'
 api = tradeapi.REST(API_KEY, API_SECRET, BASE_URL, api_version='v2')
 
 def get_spy_tickers():
-    url = "https://api.nasdaq.com/api/quote/SPY/holdings"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url)
         response.raise_for_status()  # Check if the request was successful
-        try:
-            data = response.json()
-            holdings = data['data']['holdings']
-            tickers = [holding['ticker'] for holding in holdings]
-            return tickers
-        except ValueError:
-            print("Error decoding JSON response")
-            return []
+        tables = pd.read_html(response.text)
+        df = tables[0]  # The first table contains the S&P 500 tickers
+        tickers = df['Symbol'].tolist()
+        return tickers
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
     except Exception as err:
@@ -84,12 +79,20 @@ for ticker in tickers:
         data = create_features(data)
         data = normalize(data)
         all_data = all_data.append(data)
+        print(f"Data for {ticker} appended. Columns: {all_data.columns}")
     except Exception as e:
         print(f"Error fetching data for {ticker}: {e}")
 
+# Ensure the columns exist in all_data
+print(f"All data columns: {all_data.columns}")
+
 # Prepare data for training
-X = all_data[['SMA_20', 'SMA_50', 'Momentum']].values
-y = all_data['close'].values
+if {'SMA_20', 'SMA_50', 'Momentum'}.issubset(all_data.columns):
+    X = all_data[['SMA_20', 'SMA_50', 'Momentum']].values
+    y = all_data['close'].values
+else:
+    print("Required columns are missing from the data. Exiting...")
+    exit()
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -110,11 +113,17 @@ for ticker in tickers:
         data = create_features(data)
         data = normalize(data)
         new_data = new_data.append(data)
+        print(f"Data for {ticker} appended. Columns: {new_data.columns}")
     except Exception as e:
         print(f"Error fetching data for {ticker}: {e}")
 
-X_new = new_data[['SMA_20', 'SMA_50', 'Momentum']].values
-predictions = make_prediction(model, X_new)
+# Ensure the columns exist in new_data
+if {'SMA_20', 'SMA_50', 'Momentum'}.issubset(new_data.columns):
+    X_new = new_data[['SMA_20', 'SMA_50', 'Momentum']].values
+    predictions = make_prediction(model, X_new)
+else:
+    print("Required columns are missing from the new data. Exiting...")
+    exit()
 
 # Implement a basic trading strategy
 portfolio = {}
