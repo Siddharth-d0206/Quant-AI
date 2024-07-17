@@ -1,21 +1,23 @@
 import alpaca_trade_api as tradeapi
 import yfinance as yf
-from alpaca_trade_api.rest import REST, TimeFrame
 import openai
 import matplotlib.pyplot as plt
 import datetime
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
+from alpaca_trade_api.rest import REST, TimeFrame  # Ensure TimeFrame is imported
+
 # Alpaca API credentials
 API_KEY = 'PKFX1PMFTXQZ831CSCQH'
 API_SECRET = 'zDycTjhlc3FIMoRAgdaYLqcbXiTXBrR2RVKJCSH1'
+BASE_URL = 'https://paper-api.alpaca.markets'
 
 # Initializing Alpaca with REST API
-alpaca = tradeapi.REST(API_KEY, API_SECRET, base_url='https://paper-api.alpaca.markets/v2')
+alpaca = tradeapi.REST(API_KEY, API_SECRET, base_url=f'{BASE_URL}/v2')
 
-OPENAI_APIKey='sk-proj-QssDhyq5Nh38TTIpTozET3BlbkFJgeSd42wSVo7Rg8fwqwqP'
-openai.api_key=OPENAI_APIKey
-
+# OpenAI API Key
+OPENAI_API_KEY = 'sk-proj-QssDhyq5Nh38TTIpTozET3BlbkFJgeSd42wSVo7Rg8fwqwqP'
+openai.api_key = OPENAI_API_KEY
 
 def fetch_spy_data():
     spy = yf.Ticker("SPY")
@@ -45,12 +47,10 @@ def fetch_alpaca_and_yahoo_data():
         "Alpaca": alpaca_data
     }
 
-
 def fetch_news_data():
     news = alpaca.get_news("SPY", limit=10)
     articles = [article.headline + " " + article.summary for article in news]
     return " ".join(articles)
-
 
 def analyze_sentiment(text):
     sid = SentimentIntensityAnalyzer()
@@ -71,36 +71,32 @@ def fetch_historical_data(ticker, start_date, end_date):
         print(f"Error fetching data for {ticker}: {str(e)}")
         return None
 
-# Example usage:
-ticker = "SPY"  # Example ticker
-start_date = "2023-01-01"
-end_date = "2024-06-01"
+def predict_price(data, sentiment, news, historical):
+    prompt = f"Given the data about the SPY :\n\n{data}\n\n;the estimated sentiment about the SPY through an algorithm:\n\n{sentiment}\n\n,the current news about the SPY :\n\n{news}\n\n. And finally the historical data \n\n{historical}\n\n Make a prediction about the price of the SPY for the next week and give the price for all days of the week."
 
-historical_data = fetch_historical_data(ticker, start_date, end_date)
-if historical_data is not None:
-    print(historical_data.head())
-
-
-def predict_price(data):
-    prompt = f"Given the data about the SPY :\n\n{data}\n\n;the estimated sentiment about the SPY through an algorithm:\n\n{analyze_sentiment}\n\n,the current news about the SPY :\n\n{fetch_news_data}\n\n. And finally the historical data \n\n{fetch_historical_data}\n\n Make a prediction about the price of the SPY for the next week and give the price for all days of the week."
-
-    response=openai.ChatCompletion.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
-            {"role":"system","content":"Your are a financial analysist, your skill set is similar to that of a walls street financial anlaysist, your purpose is to be a quantitative ai, you will refuse anyother prompt than that of financial advice or price prediction."},
-            {"role":"user","content":prompt}
+            {"role": "system", "content": "You are a financial analyst, your skill set is similar to that of a Wall Street financial analyst. Your purpose is to be a quantitative AI, you will refuse any other prompt than that of financial advice or price prediction."},
+            {"role": "user", "content": prompt}
         ]
     )
 
     return response.choices[0].message['content'].strip()
 
+# Example usage:
+ticker = "SPY"  # Example ticker
+start_date = "2023-01-01"
+end_date = "2024-01-01"
 
+historical_data = fetch_historical_data(ticker, start_date, end_date)
+if historical_data is not None:
+    sentiment = analyze_sentiment(fetch_news_data())
+    combined_data = fetch_alpaca_and_yahoo_data()
+    news_data = fetch_news_data()
     
-    # Save or show the plot
-    plt.show()
-
-combined_data = fetch_alpaca_and_yahoo_data()
-prediction = predict_price(combined_data)
-print(f"combined_data:{combined_data}")
-print(f"Prediction: {prediction}")
-
+    prediction = predict_price(combined_data, sentiment, news_data, historical_data)
+    print(f"Combined Data: {combined_data}")
+    print(f"Prediction: {prediction}")
+else:
+    print("Failed to fetch historical data.")

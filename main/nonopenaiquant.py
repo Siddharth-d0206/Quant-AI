@@ -1,21 +1,22 @@
 import alpaca_trade_api as tradeapi
 import yfinance as yf
 from alpaca_trade_api.rest import REST, TimeFrame
-import openai
 import matplotlib.pyplot as plt
-import datetime
+from datetime import datetime
+from sklearn.linear_model import LinearRegression
+import numpy as np
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
+
+# Download VADER lexicon
+nltk.download('vader_lexicon')
+
 # Alpaca API credentials
 API_KEY = 'PKFX1PMFTXQZ831CSCQH'
 API_SECRET = 'zDycTjhlc3FIMoRAgdaYLqcbXiTXBrR2RVKJCSH1'
 
 # Initializing Alpaca with REST API
 alpaca = tradeapi.REST(API_KEY, API_SECRET, base_url='https://paper-api.alpaca.markets/v2')
-
-OPENAI_APIKey='sk-proj-QssDhyq5Nh38TTIpTozET3BlbkFJgeSd42wSVo7Rg8fwqwqP'
-openai.api_key=OPENAI_APIKey
-
 
 def fetch_spy_data():
     spy = yf.Ticker("SPY")
@@ -45,12 +46,10 @@ def fetch_alpaca_and_yahoo_data():
         "Alpaca": alpaca_data
     }
 
-
 def fetch_news_data():
     news = alpaca.get_news("SPY", limit=10)
     articles = [article.headline + " " + article.summary for article in news]
     return " ".join(articles)
-
 
 def analyze_sentiment(text):
     sid = SentimentIntensityAnalyzer()
@@ -62,45 +61,28 @@ def analyze_sentiment(text):
     else:
         return "Neutral"
 
-def fetch_historical_data(ticker, start_date, end_date):
-    try:
-        # Fetch data
-        data = yf.download(ticker, start=start_date, end=end_date)
-        return data
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {str(e)}")
-        return None
-
-# Example usage:
-ticker = "SPY"  # Example ticker
-start_date = "2023-01-01"
-end_date = "2024-06-01"
-
-historical_data = fetch_historical_data(ticker, start_date, end_date)
-if historical_data is not None:
-    print(historical_data.head())
-
-
 def predict_price(data):
-    prompt = f"Given the data about the SPY :\n\n{data}\n\n;the estimated sentiment about the SPY through an algorithm:\n\n{analyze_sentiment}\n\n,the current news about the SPY :\n\n{fetch_news_data}\n\n. And finally the historical data \n\n{fetch_historical_data}\n\n Make a prediction about the price of the SPY for the next week and give the price for all days of the week."
-
-    response=openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role":"system","content":"Your are a financial analysist, your skill set is similar to that of a walls street financial anlaysist, your purpose is to be a quantitative ai, you will refuse anyother prompt than that of financial advice or price prediction."},
-            {"role":"user","content":prompt}
-        ]
-    )
-
-    return response.choices[0].message['content'].strip()
-
-
+    # Prepare the data for regression
+    yahoo_data = data['Yahoo Finance']
+    close_prices = yahoo_data['Close'].values.reshape(-1, 1)
+    dates = np.arange(len(close_prices)).reshape(-1, 1)  # Simple integer sequence for dates
     
-    # Save or show the plot
-    plt.show()
+    # Create and train the model
+    model = LinearRegression()
+    model.fit(dates, close_prices)
+    
+    # Predict future prices
+    future_dates = np.arange(len(close_prices), len(close_prices) + 7).reshape(-1, 1)
+    predicted_prices = model.predict(future_dates)
+    
+    prediction = {f"{i+1}d": price[0] for i, price in enumerate(predicted_prices)}
+    return prediction
 
 combined_data = fetch_alpaca_and_yahoo_data()
+news_data = fetch_news_data()
+sentiment = analyze_sentiment(news_data)
 prediction = predict_price(combined_data)
-print(f"combined_data:{combined_data}")
-print(f"Prediction: {prediction}")
 
+print(f"combined_data: {combined_data}")
+print(f"News Sentiment: {sentiment}")
+print(f"Prediction: {prediction}")
