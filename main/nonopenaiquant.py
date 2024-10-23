@@ -12,8 +12,8 @@ import nltk
 nltk.download('vader_lexicon')
 
 # Alpaca API credentials
-API_KEY = 'PKFX1PMFTXQZ831CSCQH'
-API_SECRET = 'zDycTjhlc3FIMoRAgdaYLqcbXiTXBrR2RVKJCSH1'
+API_KEY = ''
+API_SECRET = ''
 
 # Initializing Alpaca with REST API
 alpaca = tradeapi.REST(API_KEY, API_SECRET, base_url='https://paper-api.alpaca.markets/v2')
