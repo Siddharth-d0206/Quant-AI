@@ -7,13 +7,13 @@ import datetime
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
 # Alpaca API credentials
-API_KEY = 'PKFX1PMFTXQZ831CSCQH'
-API_SECRET = 'zDycTjhlc3FIMoRAgdaYLqcbXiTXBrR2RVKJCSH1'
+API_KEY = ''
+API_SECRET = ''
 
 # Initializing Alpaca with REST API
 alpaca = tradeapi.REST(API_KEY, API_SECRET, base_url='https://paper-api.alpaca.markets/v2')
 
-OPENAI_APIKey='sk-proj-QssDhyq5Nh38TTIpTozET3BlbkFJgeSd42wSVo7Rg8fwqwqP'
+OPENAI_APIKey=''
 openai.api_key=OPENAI_APIKey
 
 
